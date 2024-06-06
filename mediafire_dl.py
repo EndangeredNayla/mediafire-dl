@@ -34,6 +34,9 @@ def download(url, output=None, quiet=False):
         except requests.exceptions.SSLError as e:
             print(f"SSL error: {e}", file=sys.stderr)
             return
+        except requests.exceptions.RequestException as e:
+            print(f"Request error: {e}", file=sys.stderr)
+            return
 
         if 'Content-Disposition' in res.headers:
             # This is the file
