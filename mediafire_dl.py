@@ -22,7 +22,7 @@ def extractDownloadLink(contents):
     return None
 
 def download(url, output=None, quiet=False):
-    url_origin = url
+    url_origin = url.replace('http://', 'https://')
     sess = requests.Session()
     sess.headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.5481.178 Safari/537.36"
@@ -30,7 +30,7 @@ def download(url, output=None, quiet=False):
 
     while True:
         try:
-            res = sess.get(url, stream=True, verify=True)
+            res = sess.get(url_origin, stream=True, verify=True)
         except requests.exceptions.SSLError as e:
             print(f"SSL error: {e}", file=sys.stderr)
             return
@@ -40,10 +40,10 @@ def download(url, output=None, quiet=False):
             break
 
         # Need to redirect with confirmation
-        url = extractDownloadLink(res.text)
+        url_origin = extractDownloadLink(res.text)
 
-        if url is None:
-            print(f'Permission denied: {url_origin}', file=sys.stderr)
+        if url_origin is None:
+            print(f'Permission denied: {url}', file=sys.stderr)
             print("Maybe you need to change permission to 'Anyone with the link'?", file=sys.stderr)
             return
 
@@ -53,7 +53,7 @@ def download(url, output=None, quiet=False):
             output = m.groups()[0]
             output = output.encode('iso8859').decode('utf-8')
         else:
-            output = osp.basename(url)
+            output = osp.basename(url_origin)
 
     output_is_path = isinstance(output, six.string_types)
 
