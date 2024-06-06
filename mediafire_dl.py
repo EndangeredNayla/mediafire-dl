@@ -19,57 +19,51 @@ def extractDownloadLink(contents):
         m = re.search(r'href="((http|https)://download[^"]+)', line)
         if m:
             return m.groups()[0]
+    return None
 
 def download(url, output=None, quiet=False):
     url_origin = url
-    sess = requests.session()
+    sess = requests.Session()
     sess.headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.5481.178 Safari/537.36"
     }
 
     while True:
-        res = sess.get(url, stream=True)
+        try:
+            res = sess.get(url, stream=True, verify=True)
+        except requests.exceptions.SSLError as e:
+            print(f"SSL error: {e}", file=sys.stderr)
+            return
+
         if 'Content-Disposition' in res.headers:
             # This is the file
             break
 
-        # Need to redirect with confiramtion
+        # Need to redirect with confirmation
         url = extractDownloadLink(res.text)
 
         if url is None:
-            print('Permission denied: %s' % url_origin, file=sys.stderr)
-            print(
-                "Maybe you need to change permission over "
-                "'Anyone with the link'?",
-                file=sys.stderr,
-            )
+            print(f'Permission denied: {url_origin}', file=sys.stderr)
+            print("Maybe you need to change permission to 'Anyone with the link'?", file=sys.stderr)
             return
 
     if output is None:
-        m = re.search(
-            'filename="(.*)"', res.headers['Content-Disposition']
-        )
-        output = m.groups()[0]
-        output = output.encode('iso8859').decode('utf-8')
-        # output = osp.basename(url)
+        m = re.search('filename="(.*)"', res.headers['Content-Disposition'])
+        if m:
+            output = m.groups()[0]
+            output = output.encode('iso8859').decode('utf-8')
+        else:
+            output = osp.basename(url)
 
     output_is_path = isinstance(output, six.string_types)
 
     if not quiet:
         print('Downloading...', file=sys.stderr)
         print('From:', url_origin, file=sys.stderr)
-        print(
-            'To:',
-            osp.abspath(output) if output_is_path else output,
-            file=sys.stderr,
-        )
+        print('To:', osp.abspath(output) if output_is_path else output, file=sys.stderr)
 
     if output_is_path:
-        tmp_file = tempfile.mktemp(
-            suffix=tempfile.template,
-            prefix=osp.basename(output),
-            dir=osp.dirname(output),
-        )
+        tmp_file = tempfile.mktemp(suffix='.tmp', prefix=osp.basename(output), dir=osp.dirname(output))
         f = open(tmp_file, 'wb')
     else:
         tmp_file = None
@@ -103,7 +97,7 @@ def download(url, output=None, quiet=False):
 
 
 def main():
-    desc = 'Simple command-line script to download files from mediafire'
+    desc = 'Simple command-line script to download files from Mediafire'
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument('url', nargs='+')
     parser.add_argument('-o', '--output', help='output filename')
